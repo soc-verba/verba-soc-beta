@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verba | Modern Social Experience</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root { --primary: #6366f1; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --border: rgba(255, 255, 255, 0.5); }
+        .dark { --bg: #020617; --card: #0f172a; --text: #f8fafc; --border: rgba(30, 41, 59, 0.5); }
+        
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text); letter-spacing: -0.02em; transition: background-color 0.3s ease, color 0.3s ease; overflow-x: hidden; }
+        .glass-nav { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
+        .dark .glass-nav { background: rgba(15, 23, 42, 0.7); border-top: 1px solid rgba(255, 255, 255, 0.05); }
+        
+        .card-modern { background: var(--card); border-radius: 2.5rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02); transition: all 0.3s ease; }
+        .card-modern:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05); }
+        
+        .input-modern { background: #f1f5f9; border: 2px solid transparent; transition: all 0.2s ease; color: #0f172a; }
+        .dark .input-modern { background: #1e293b; color: #f8fafc; }
+        .input-modern:focus { background: white; border-color: #e2e8f0; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+        .dark .input-modern:focus { background: #0f172a; border-color: #334155; }
+        
+        .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
+        [x-cloak] { display: none !important; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+
+        .modal-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body x-data="app()" x-init="init()" :class="{ 'dark': darkMode }" class="min-h-screen pb-24 md:pb-0 md:pt-24" x-cloak>
+
+    <!-- Navigation -->
+    <template x-if="user">
+        <nav class="fixed bottom-6 left-6 right-6 z-50 md:top-0 md:bottom-auto md:left-0 md:right-0 md:m-0">
+            <div class="max-w-2xl mx-auto glass-nav rounded-[2rem] md:rounded-none px-8 py-4 shadow-2xl md:shadow-none flex justify-between items-center border border-white/20">
+                <div class="hidden md:flex items-center gap-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white"><i data-lucide="zap" class="w-5 h-5 fill-current"></i></div>
+                    <h1 class="text-xl font-extrabold tracking-tighter" :class="darkMode ? 'text-white' : 'text-slate-900'">Verba</h1>
+                </div>
+                <div class="flex flex-1 justify-around md:flex-none md:gap-12">
+                    <button @click="switchView('feed')" class="relative py-2" :class="view === 'feed' ? 'text-indigo-600' : 'text-slate-400'"><i data-lucide="layout-grid" class="w-6 h-6"></i></button>
+                    <button @click="switchView('search')" class="relative py-2" :class="view === 'search' ? 'text-indigo-600' : 'text-slate-400'"><i data-lucide="search" class="w-6 h-6"></i></button>
+                    <button @click="switchView('create')" class="relative py-2" :class="view === 'create' ? 'text-indigo-600' : 'text-slate-400'"><i data-lucide="plus-circle" class="w-6 h-6"></i></button>
+                    <button @click="switchView('settings')" class="relative py-2" :class="view === 'settings' ? 'text-indigo-600' : 'text-slate-400'"><i data-lucide="settings" class="w-6 h-6"></i></button>
+                </div>
+            </div>
+        </nav>
+    </template>
+
+    <main class="max-w-xl mx-auto px-6">
+        <!-- Auth Section -->
+        <template x-if="!user && !initialLoading">
+            <div class="mt-20 text-center">
+                <div class="card-modern p-10 shadow-xl">
+                    <h2 class="text-3xl font-black mb-2" x-text="authMode === 'login' ? 'Willkommen zurück' : 'Neu hier?'"></h2>
+                    <div class="space-y-4 mt-8">
+                        <input type="email" x-model="authEmail" placeholder="E-Mail" class="w-full p-5 rounded-3xl input-modern outline-none">
+                        <input type="password" x-model="authPassword" placeholder="Passwort" class="w-full p-5 rounded-3xl input-modern outline-none">
+                        <button @click="handleAuth()" class="w-full py-5 btn-primary text-white rounded-3xl font-bold shadow-lg shadow-indigo-200" :disabled="loading" x-text="loading ? 'Einen Moment...' : 'Starten'"></button>
+                        <button @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-slate-400 text-sm font-medium" x-text="authMode === 'login' ? 'Noch kein Account? Registrieren' : 'Bereits dabei? Einloggen'"></button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Feed Section -->
+        <template x-if="user && view === 'feed'">
+            <div class="space-y-8 pt-8">
+                <div class="flex items-end justify-between px-2">
+                    <h2 class="text-4xl font-black" :class="darkMode ? 'text-white' : 'text-slate-900'">Journal</h2>
+                    <div class="flex gap-2">
+                        <button @click="feedMode = 'discovery'; fetchPosts()" class="text-xs font-bold px-4 py-2 rounded-full transition-all" :class="feedMode === 'discovery' ? 'bg-indigo-600 text-white shadow-md' : (darkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')">Entdecken</button>
+                        <button @click="feedMode = 'following'; fetchPosts()" class="text-xs font-bold px-4 py-2 rounded-full transition-all" :class="feedMode === 'following' ? 'bg-indigo-600 text-white shadow-md' : (darkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')">Gefolgt</button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <template x-for="post in posts" :key="post.id">
+                        <article class="card-modern p-8 border group" :class="darkMode ? 'border-slate-800' : 'border-white'">
+                            <div class="flex items-center justify-between mb-4">
+                                <button @click="openUserProfile(post.user_id)" class="flex items-center gap-3 text-left">
+                                    <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 font-bold" x-text="post.author_name[0].toUpperCase()"></div>
+                                    <div>
+                                        <p class="font-bold text-sm hover:text-indigo-600 transition-colors" :class="darkMode ? 'text-slate-200' : 'text-slate-900'" x-text="post.author_name"></p>
+                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                                    </div>
+                                </button>
+                                <template x-if="post.user_id === user.id">
+                                    <button @click="deletePost(post.id)" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </template>
+                            </div>
+                            <p class="text-lg mb-6 leading-relaxed" :class="darkMode ? 'text-slate-300' : 'text-slate-600'" x-text="post.content"></p>
+                            
+                            <!-- Interaction Bar -->
+                            <div class="flex items-center gap-6 pt-4 border-t" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
+                                <button @click="toggleLike(post.id)" class="flex items-center gap-2 transition-colors" :class="post.user_has_liked ? 'text-red-500' : 'text-slate-400'">
+                                    <i data-lucide="heart" class="w-5 h-5" :class="post.user_has_liked && 'fill-current'"></i>
+                                    <span class="text-sm font-bold" x-text="post.likes_count || 0"></span>
+                                </button>
+                                <button @click="activePostId = (activePostId === post.id ? null : post.id)" class="flex items-center gap-2 transition-colors" :class="activePostId === post.id ? 'text-indigo-600' : 'text-slate-400'">
+                                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                                    <span class="text-sm font-bold" x-text="post.comments_count || 0"></span>
+                                </button>
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div x-show="activePostId === post.id" x-transition class="mt-6 space-y-4">
+                                <div class="flex gap-2">
+                                    <input type="text" x-model="newComment" placeholder="Kommentieren..." class="flex-1 p-4 rounded-2xl text-sm outline-none font-medium border-2 border-transparent focus:border-indigo-100 transition-all" :class="darkMode ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'">
+                                    <button @click="addComment(post.id)" class="px-5 bg-indigo-600 text-white rounded-2xl shadow-md hover:bg-indigo-700 transition-colors"><i data-lucide="send" class="w-4 h-4"></i></button>
+                                </div>
+                                <div class="max-h-60 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                                    <template x-for="comment in post.comments" :key="comment.id">
+                                        <div class="p-4 rounded-2xl flex justify-between items-start" :class="darkMode ? 'bg-slate-800/50' : 'bg-slate-50'">
+                                            <div class="flex-1">
+                                                <button @click="openUserProfile(comment.user_id)" class="text-[10px] font-black text-indigo-600 uppercase mb-1 hover:underline" x-text="comment.username"></button>
+                                                <p class="text-sm font-medium leading-snug" :class="darkMode ? 'text-slate-300' : 'text-slate-700'" x-text="comment.content"></p>
+                                            </div>
+                                            <template x-if="comment.user_id === user.id">
+                                                <button @click="deleteComment(comment.id)" class="ml-2 text-slate-300 hover:text-red-400 transition-colors">
+                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Profile Modal (Click on User) -->
+        <div x-show="selectedUserProfile" 
+             class="fixed inset-0 z-[100] modal-blur bg-slate-900/40 p-4 md:p-8 flex items-center justify-center"
+             x-transition.opacity>
+            <div class="card-modern w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" 
+                 @click.away="selectedUserProfile = null">
+                <!-- Header -->
+                <div class="p-8 border-b flex items-center justify-between" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 rounded-[1.5rem] bg-indigo-600 text-white flex items-center justify-center text-2xl font-black" x-text="selectedUserProfile?.username?.[0].toUpperCase()"></div>
+                        <div>
+                            <h3 class="text-2xl font-black" :class="darkMode ? 'text-white' : 'text-slate-900'" x-text="selectedUserProfile?.username"></h3>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest" x-text="(selectedUserPosts.length || 0) + ' Beiträge'"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- New: Follow Button in Profile Modal -->
+                        <template x-if="selectedUserProfile && selectedUserProfile.id !== user.id">
+                            <button @click="toggleFollow(selectedUserProfile.id)" 
+                                    class="px-6 py-2.5 rounded-2xl font-bold text-sm transition-all" 
+                                    :class="followingIds.includes(selectedUserProfile.id) ? (darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500') : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'">
+                                <span x-text="followingIds.includes(selectedUserProfile.id) ? 'Entfolgen' : 'Folgen'"></span>
+                            </button>
+                        </template>
+                        <button @click="selectedUserProfile = null" class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+                <!-- Content -->
+                <div class="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+                    <template x-for="post in selectedUserPosts" :key="post.id">
+                        <div class="p-6 rounded-3xl border" :class="darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-100'">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase mb-2" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                            <p class="text-md leading-relaxed" :class="darkMode ? 'text-slate-300' : 'text-slate-700'" x-text="post.content"></p>
+                        </div>
+                    </template>
+                    <template x-if="selectedUserPosts.length === 0">
+                        <div class="text-center py-20">
+                            <i data-lucide="ghost" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i>
+                            <p class="text-slate-400 font-medium">Noch keine Beiträge vorhanden.</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <template x-if="user && view === 'search'">
+            <div class="pt-8">
+                <h2 class="text-4xl font-black mb-8" :class="darkMode ? 'text-white' : 'text-slate-900'">Suche</h2>
+                <div class="relative mb-8">
+                    <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                    <input type="text" x-model="searchQuery" @input.debounce.300ms="searchUsers()" placeholder="Profile finden..." class="w-full p-6 pl-16 rounded-[2rem] input-modern outline-none font-bold text-lg">
+                </div>
+                <div class="space-y-4">
+                    <template x-for="foundUser in searchResults" :key="foundUser.id">
+                        <div class="card-modern p-6 flex items-center justify-between border" :class="darkMode ? 'border-slate-800' : 'border-white'">
+                            <button @click="openUserProfile(foundUser.id)" class="flex items-center gap-4 text-left">
+                                <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 font-black" x-text="foundUser.username[0].toUpperCase()"></div>
+                                <p class="font-bold hover:text-indigo-600" :class="darkMode ? 'text-slate-200' : 'text-slate-900'" x-text="foundUser.username"></p>
+                            </button>
+                            <template x-if="foundUser.id !== user.id">
+                                <button @click="toggleFollow(foundUser.id)" class="px-6 py-2 rounded-2xl font-bold text-sm transition-all" :class="followingIds.includes(foundUser.id) ? (darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500') : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'">
+                                    <span x-text="followingIds.includes(foundUser.id) ? 'Entfolgen' : 'Folgen'"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Create Section -->
+        <template x-if="user && view === 'create'">
+            <div class="pt-8">
+                <h2 class="text-4xl font-black mb-8" :class="darkMode ? 'text-white' : 'text-slate-900'">Erstellen</h2>
+                <div class="card-modern p-8 shadow-xl">
+                    <textarea x-model="newPostContent" placeholder="Was beschäftigt dich gerade?" class="w-full h-48 text-xl font-medium bg-transparent border-none outline-none resize-none mb-8 placeholder:text-slate-300 leading-relaxed" :class="darkMode ? 'text-slate-200' : 'text-slate-700'"></textarea>
+                    <div class="flex justify-end pt-6 border-t" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
+                        <button @click="createPost()" class="px-10 py-4 btn-primary text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 transition-transform active:scale-95" :disabled="!newPostContent.trim()">Teilen</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Settings Section -->
+        <template x-if="user && view === 'settings'">
+            <div class="pt-8">
+                <h2 class="text-4xl font-black mb-8" :class="darkMode ? 'text-white' : 'text-slate-900'">Profil & Design</h2>
+                <div class="card-modern p-10 space-y-8">
+                    <div class="flex items-center gap-6 mb-4">
+                        <div class="w-20 h-20 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 text-3xl font-black" x-text="profile.username ? profile.username[0].toUpperCase() : '?'"></div>
+                        <div>
+                            <p class="text-2xl font-black" :class="darkMode ? 'text-white' : 'text-slate-900'" x-text="profile.username"></p>
+                            <p class="text-slate-400 font-bold text-xs uppercase tracking-widest" x-text="user.email"></p>
+                        </div>
+                    </div>
+
+                    <!-- Appearance -->
+                    <div class="space-y-4">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Erscheinungsbild</label>
+                        <div class="flex gap-4">
+                            <button @click="darkMode = false" class="flex-1 py-4 rounded-3xl font-bold border-2 transition-all flex items-center justify-center gap-2" :class="!darkMode ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 dark:border-slate-800'">
+                                <i data-lucide="sun" class="w-4 h-4"></i> Light
+                            </button>
+                            <button @click="darkMode = true" class="flex-1 py-4 rounded-3xl font-bold border-2 transition-all flex items-center justify-center gap-2" :class="darkMode ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-slate-100 text-slate-400'">
+                                <i data-lucide="moon" class="w-4 h-4"></i> Dark
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dein Nutzername</label>
+                        <input type="text" x-model="profile.username" class="w-full p-5 rounded-3xl input-modern outline-none font-bold border-2 border-transparent focus:border-indigo-100">
+                    </div>
+
+                    <div class="pt-6 border-t space-y-4" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
+                        <button @click="updateProfile()" class="w-full py-5 bg-indigo-600 text-white rounded-3xl font-bold shadow-xl hover:bg-indigo-700 transition-all">Änderungen speichern</button>
+                        <button @click="logout()" class="w-full py-5 bg-slate-100 text-slate-500 rounded-3xl font-bold hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">Abmelden</button>
+                        
+                        <div class="pt-8 border-t border-red-500/10">
+                            <button @click="confirmDelete = true" class="w-full py-4 text-red-500 font-bold text-sm hover:underline">Account dauerhaft löschen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <!-- Global Alert Box -->
+    <div x-show="alertMessage" x-transition class="fixed top-8 left-1/2 -translate-x-1/2 z-[200] px-8 py-4 bg-slate-900 text-white rounded-2xl shadow-2xl font-bold text-sm" x-text="alertMessage"></div>
+
+    <script>
+        const SUPABASE_URL = "https://dnmtoksbkdqpjkrzinqm.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_NTz3JgM2THa8I65mq2j5CQ_VxjbONqb";
+        const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function app() {
+            return {
+                user: null, profile: { username: '' }, view: 'feed', feedMode: 'discovery',
+                authMode: 'login', authEmail: '', authPassword: '', loading: false, initialLoading: true,
+                posts: [], newPostContent: '', activePostId: null, newComment: '',
+                searchQuery: '', searchResults: [], followingIds: [],
+                darkMode: localStorage.getItem('theme') === 'dark',
+                confirmDelete: false, alertMessage: null,
+                selectedUserProfile: null, selectedUserPosts: [],
+
+                async init() {
+                    this.$watch('darkMode', val => {
+                        localStorage.setItem('theme', val ? 'dark' : 'light');
+                        this.refreshIcons();
+                    });
+
+                    const { data: { user } } = await _sb.auth.getUser();
+                    this.user = user;
+                    if (this.user) {
+                        await this.fetchProfile();
+                        await this.fetchFollowing();
+                        await this.fetchPosts();
+                    }
+                    _sb.auth.onAuthStateChange(async (_event, session) => {
+                        this.user = session?.user || null;
+                        if (this.user) {
+                            await this.fetchProfile();
+                            await this.fetchFollowing();
+                            await this.fetchPosts();
+                        }
+                    });
+                    this.initialLoading = false;
+                    this.refreshIcons();
+                },
+
+                showAlert(msg) {
+                    this.alertMessage = msg;
+                    setTimeout(() => this.alertMessage = null, 3000);
+                },
+
+                async openUserProfile(userId) {
+                    const { data: profile } = await _sb.from('profiles').select('*').eq('id', userId).maybeSingle();
+                    if (profile) {
+                        const { data: posts } = await _sb.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+                        this.selectedUserProfile = profile;
+                        this.selectedUserPosts = posts || [];
+                        this.refreshIcons();
+                    }
+                },
+
+                async fetchPosts() {
+                    this.loading = true;
+                    let query = _sb.from('posts').select(`*, likes(user_id), comments(*)`).order('created_at', { ascending: false });
+                    
+                    if (this.feedMode === 'following') {
+                        if (this.followingIds.length > 0) {
+                            query = query.in('user_id', this.followingIds);
+                        } else {
+                            this.posts = [];
+                            this.loading = false;
+                            this.refreshIcons();
+                            return;
+                        }
+                    } else {
+                        query = query.limit(20);
+                    }
+
+                    const { data, error } = await query;
+                    if (data) {
+                        this.posts = await Promise.all(data.map(async post => {
+                            const { data: prof } = await _sb.from('profiles').select('username').eq('id', post.user_id).maybeSingle();
+                            
+                            const commentsWithUsers = await Promise.all((post.comments || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(async c => {
+                                const { data: cProf } = await _sb.from('profiles').select('username').eq('id', c.user_id).maybeSingle();
+                                return { ...c, username: cProf?.username || 'Nutzer' };
+                            }));
+
+                            return {
+                                ...post,
+                                author_name: prof?.username || 'Anonym',
+                                likes_count: post.likes?.length || 0,
+                                user_has_liked: post.likes?.some(l => l.user_id === this.user?.id),
+                                comments_count: post.comments?.length || 0,
+                                comments: commentsWithUsers
+                            };
+                        }));
+                    }
+                    this.loading = false;
+                    this.refreshIcons();
+                },
+
+                async toggleLike(postId) {
+                    const post = this.posts.find(p => p.id === postId);
+                    if (post.user_has_liked) {
+                        await _sb.from('likes').delete().eq('post_id', postId).eq('user_id', this.user.id);
+                    } else {
+                        await _sb.from('likes').insert({ post_id: postId, user_id: this.user.id });
+                    }
+                    await this.fetchPosts();
+                },
+
+                async addComment(postId) {
+                    if (!this.newComment.trim()) return;
+                    await _sb.from('comments').insert({ post_id: postId, user_id: this.user.id, content: this.newComment });
+                    this.newComment = '';
+                    await this.fetchPosts();
+                },
+
+                async deleteComment(commentId) {
+                    const { error } = await _sb.from('comments').delete().eq('id', commentId).eq('user_id', this.user.id);
+                    if (!error) await this.fetchPosts();
+                },
+
+                async handleAuth() {
+                    this.loading = true;
+                    try {
+                        let res = this.authMode === 'login' 
+                            ? await _sb.auth.signInWithPassword({ email: this.authEmail, password: this.authPassword })
+                            : await _sb.auth.signUp({ email: this.authEmail, password: this.authPassword });
+                        
+                        if (res.error) throw res.error;
+                        
+                        if (this.authMode === 'signup' && res.data.user) {
+                            const baseUsername = this.authEmail.split('@')[0];
+                            await _sb.from('profiles').upsert({ id: res.data.user.id, username: baseUsername + Math.floor(Math.random() * 1000) });
+                            this.showAlert("Account erstellt! Willkommen.");
+                        }
+                    } catch (e) { this.showAlert(e.message); }
+                    finally { this.loading = false; }
+                },
+
+                async fetchProfile() {
+                    const { data } = await _sb.from('profiles').select('*').eq('id', this.user.id).maybeSingle();
+                    if (data) this.profile = data;
+                },
+
+                async fetchFollowing() {
+                    const { data } = await _sb.from('follows').select('following_id').eq('follower_id', this.user.id);
+                    if (data) this.followingIds = data.map(f => f.following_id);
+                },
+
+                async toggleFollow(targetId) {
+                    if (this.followingIds.includes(targetId)) {
+                        await _sb.from('follows').delete().eq('follower_id', this.user.id).eq('following_id', targetId);
+                        this.followingIds = this.followingIds.filter(id => id !== targetId);
+                    } else {
+                        await _sb.from('follows').insert({ follower_id: this.user.id, following_id: targetId });
+                        this.followingIds.push(targetId);
+                    }
+                    // Refresh posts to update feed if in "following" mode
+                    await this.fetchPosts();
+                },
+
+                async createPost() {
+                    if (!this.newPostContent.trim()) return;
+                    await _sb.from('posts').insert({ user_id: this.user.id, content: this.newPostContent });
+                    this.newPostContent = ''; this.view = 'feed'; await this.fetchPosts();
+                },
+
+                async deletePost(id) {
+                    await _sb.from('posts').delete().eq('id', id); await this.fetchPosts();
+                },
+
+                async updateProfile() {
+                    const newUsername = this.profile.username.trim();
+                    if (!newUsername) return;
+
+                    // Check for uniqueness
+                    const { data: existing } = await _sb.from('profiles').select('id').eq('username', newUsername).neq('id', this.user.id).maybeSingle();
+                    if (existing) {
+                        this.showAlert("Dieser Nutzername ist bereits vergeben.");
+                        return;
+                    }
+
+                    const { error } = await _sb.from('profiles').upsert({ id: this.user.id, username: newUsername });
+                    if (!error) {
+                        this.showAlert("Profil aktualisiert!");
+                        await this.fetchPosts();
+                    } else {
+                        this.showAlert("Fehler beim Speichern.");
+                    }
+                },
+
+                async searchUsers() {
+                    if (!this.searchQuery.trim()) { this.searchResults = []; return; }
+                    const { data } = await _sb.from('profiles').select('id, username').ilike('username', `%${this.searchQuery}%`).limit(10);
+                    if (data) this.searchResults = data;
+                    this.refreshIcons();
+                },
+
+                async deleteAccount() {
+                    await _sb.from('profiles').delete().eq('id', this.user.id);
+                    await _sb.auth.signOut();
+                    window.location.reload();
+                },
+
+                logout() { _sb.auth.signOut().then(() => window.location.reload()); },
+                switchView(v) { this.view = v; this.refreshIcons(); },
+                refreshIcons() { setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 150); }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</body>
+</html>
