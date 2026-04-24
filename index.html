@@ -15,8 +15,9 @@
         :root { --primary: #6366f1; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --border: rgba(255, 255, 255, 0.5); }
         .dark { --bg: #020617; --card: #0f172a; --text: #f8fafc; --border: rgba(30, 41, 59, 0.5); }
         
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text); letter-spacing: -0.02em; transition: background-color 0.3s ease, color 0.3s ease; overflow-x: hidden; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text); letter-spacing: -0.02em; transition: background-color 0.3s x-ease, color 0.3s ease; overflow-x: hidden; }
         .glass-nav { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
+        .dark { --bg: #020617; --card: #0f172a; --text: #f8fafc; --border: rgba(30, 41, 59, 0.5); }
         .dark .glass-nav { background: rgba(15, 23, 42, 0.7); border-top: 1px solid rgba(255, 255, 255, 0.05); }
         
         .card-modern { background: var(--card); border-radius: 2.5rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02); transition: all 0.3s ease; }
@@ -29,12 +30,14 @@
         
         .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
         [x-cloak] { display: none !important; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
 
         .modal-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        
+        .topic-chip { scroll-snap-align: start; flex-shrink: 0; }
     </style>
 </head>
 <body x-data="app()" x-init="init()" :class="{ 'dark': darkMode }" class="min-h-screen pb-24 md:pb-0 md:pt-24" x-cloak>
@@ -58,7 +61,7 @@
     </template>
 
     <main class="max-w-xl mx-auto px-6">
-        <!-- Auth Section -->
+        <!-- Auth Section (Unverändert) -->
         <template x-if="!user && !initialLoading">
             <div class="mt-20 text-center">
                 <div class="card-modern p-10 shadow-xl">
@@ -75,13 +78,29 @@
 
         <!-- Feed Section -->
         <template x-if="user && view === 'feed'">
-            <div class="space-y-8 pt-8">
+            <div class="space-y-6 pt-8">
                 <div class="flex items-end justify-between px-2">
                     <h2 class="text-4xl font-black" :class="darkMode ? 'text-white' : 'text-slate-900'">Journal</h2>
                     <div class="flex gap-2">
                         <button @click="feedMode = 'discovery'; fetchPosts()" class="text-xs font-bold px-4 py-2 rounded-full transition-all" :class="feedMode === 'discovery' ? 'bg-indigo-600 text-white shadow-md' : (darkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')">Entdecken</button>
                         <button @click="feedMode = 'following'; fetchPosts()" class="text-xs font-bold px-4 py-2 rounded-full transition-all" :class="feedMode === 'following' ? 'bg-indigo-600 text-white shadow-md' : (darkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')">Gefolgt</button>
                     </div>
+                </div>
+
+                <!-- Topics Filter Bar -->
+                <div class="flex gap-3 overflow-x-auto pb-4 custom-scrollbar snap-x no-scrollbar">
+                    <button @click="selectedTopic = 'Alle'; fetchPosts()" 
+                            class="topic-chip px-5 py-2.5 rounded-2xl font-bold text-xs transition-all border-2"
+                            :class="selectedTopic === 'Alle' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : (darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-500')">
+                        Alle
+                    </button>
+                    <template x-for="topic in topics" :key="topic">
+                        <button @click="selectedTopic = topic; fetchPosts()" 
+                                class="topic-chip px-5 py-2.5 rounded-2xl font-bold text-xs transition-all border-2"
+                                :class="selectedTopic === topic ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : (darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-500')">
+                            <span x-text="topic"></span>
+                        </button>
+                    </template>
                 </div>
 
                 <div class="space-y-6">
@@ -92,7 +111,11 @@
                                     <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 font-bold" x-text="post.author_name[0].toUpperCase()"></div>
                                     <div>
                                         <p class="font-bold text-sm hover:text-indigo-600 transition-colors" :class="darkMode ? 'text-slate-200' : 'text-slate-900'" x-text="post.author_name"></p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                                            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                            <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest" x-text="post.topic || 'Allgemein'"></span>
+                                        </div>
                                     </div>
                                 </button>
                                 <template x-if="post.user_id === user.id">
@@ -141,7 +164,7 @@
             </div>
         </template>
 
-        <!-- Profile Modal (Click on User) -->
+        <!-- Profile Modal -->
         <div x-show="selectedUserProfile" 
              class="fixed inset-0 z-[100] modal-blur bg-slate-900/40 p-4 md:p-8 flex items-center justify-center"
              x-transition.opacity>
@@ -157,7 +180,6 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <!-- New: Follow Button in Profile Modal -->
                         <template x-if="selectedUserProfile && selectedUserProfile.id !== user.id">
                             <button @click="toggleFollow(selectedUserProfile.id)" 
                                     class="px-6 py-2.5 rounded-2xl font-bold text-sm transition-all" 
@@ -172,14 +194,11 @@
                 <div class="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
                     <template x-for="post in selectedUserPosts" :key="post.id">
                         <div class="p-6 rounded-3xl border" :class="darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-100'">
-                            <p class="text-[10px] text-slate-400 font-bold uppercase mb-2" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-[10px] text-slate-400 font-bold uppercase" x-text="new Date(post.created_at).toLocaleDateString()"></p>
+                                <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest" x-text="post.topic || 'Allgemein'"></span>
+                            </div>
                             <p class="text-md leading-relaxed" :class="darkMode ? 'text-slate-300' : 'text-slate-700'" x-text="post.content"></p>
-                        </div>
-                    </template>
-                    <template x-if="selectedUserPosts.length === 0">
-                        <div class="text-center py-20">
-                            <i data-lucide="ghost" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i>
-                            <p class="text-slate-400 font-medium">Noch keine Beiträge vorhanden.</p>
                         </div>
                     </template>
                 </div>
@@ -217,7 +236,21 @@
             <div class="pt-8">
                 <h2 class="text-4xl font-black mb-8" :class="darkMode ? 'text-white' : 'text-slate-900'">Erstellen</h2>
                 <div class="card-modern p-8 shadow-xl">
-                    <textarea x-model="newPostContent" placeholder="Was beschäftigt dich gerade?" class="w-full h-48 text-xl font-medium bg-transparent border-none outline-none resize-none mb-8 placeholder:text-slate-300 leading-relaxed" :class="darkMode ? 'text-slate-200' : 'text-slate-700'"></textarea>
+                    <textarea x-model="newPostContent" placeholder="Was beschäftigt dich gerade?" class="w-full h-40 text-xl font-medium bg-transparent border-none outline-none resize-none mb-6 placeholder:text-slate-300 leading-relaxed" :class="darkMode ? 'text-slate-200' : 'text-slate-700'"></textarea>
+                    
+                    <div class="space-y-3 mb-8">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thema wählen</label>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="topic in topics" :key="topic">
+                                <button @click="newPostTopic = topic" 
+                                        class="px-4 py-2 rounded-xl text-xs font-bold transition-all border-2"
+                                        :class="newPostTopic === topic ? 'bg-indigo-100 border-indigo-600 text-indigo-600 dark:bg-indigo-900/40' : (darkMode ? 'border-slate-800 text-slate-500' : 'border-slate-100 text-slate-400')">
+                                    <span x-text="topic"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end pt-6 border-t" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
                         <button @click="createPost()" class="px-10 py-4 btn-primary text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 transition-transform active:scale-95" :disabled="!newPostContent.trim()">Teilen</button>
                     </div>
@@ -238,7 +271,6 @@
                         </div>
                     </div>
 
-                    <!-- Appearance -->
                     <div class="space-y-4">
                         <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Erscheinungsbild</label>
                         <div class="flex gap-4">
@@ -259,10 +291,6 @@
                     <div class="pt-6 border-t space-y-4" :class="darkMode ? 'border-slate-800' : 'border-slate-50'">
                         <button @click="updateProfile()" class="w-full py-5 bg-indigo-600 text-white rounded-3xl font-bold shadow-xl hover:bg-indigo-700 transition-all">Änderungen speichern</button>
                         <button @click="logout()" class="w-full py-5 bg-slate-100 text-slate-500 rounded-3xl font-bold hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">Abmelden</button>
-                        
-                        <div class="pt-8 border-t border-red-500/10">
-                            <button @click="confirmDelete = true" class="w-full py-4 text-red-500 font-bold text-sm hover:underline">Account dauerhaft löschen</button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -284,8 +312,13 @@
                 posts: [], newPostContent: '', activePostId: null, newComment: '',
                 searchQuery: '', searchResults: [], followingIds: [],
                 darkMode: localStorage.getItem('theme') === 'dark',
-                confirmDelete: false, alertMessage: null,
+                alertMessage: null,
                 selectedUserProfile: null, selectedUserPosts: [],
+                
+                // Topics Data
+                topics: ['Technik', 'Gesundheit', 'Freizeit', 'Sport', 'Kultur', 'Reisen', 'Essen', 'Finanzen', 'Natur', 'Gaming', 'Wissenschaft'],
+                selectedTopic: 'Alle',
+                newPostTopic: 'Allgemein',
 
                 async init() {
                     this.$watch('darkMode', val => {
@@ -331,17 +364,22 @@
                     this.loading = true;
                     let query = _sb.from('posts').select(`*, likes(user_id), comments(*)`).order('created_at', { ascending: false });
                     
+                    // Filter by Following
                     if (this.feedMode === 'following') {
                         if (this.followingIds.length > 0) {
                             query = query.in('user_id', this.followingIds);
                         } else {
                             this.posts = [];
                             this.loading = false;
-                            this.refreshIcons();
                             return;
                         }
+                    }
+
+                    // Filter by Topic
+                    if (this.selectedTopic !== 'Alle') {
+                        query = query.eq('topic', this.selectedTopic);
                     } else {
-                        query = query.limit(20);
+                        query = query.limit(30);
                     }
 
                     const { data, error } = await query;
@@ -396,13 +434,10 @@
                         let res = this.authMode === 'login' 
                             ? await _sb.auth.signInWithPassword({ email: this.authEmail, password: this.authPassword })
                             : await _sb.auth.signUp({ email: this.authEmail, password: this.authPassword });
-                        
                         if (res.error) throw res.error;
-                        
                         if (this.authMode === 'signup' && res.data.user) {
                             const baseUsername = this.authEmail.split('@')[0];
                             await _sb.from('profiles').upsert({ id: res.data.user.id, username: baseUsername + Math.floor(Math.random() * 1000) });
-                            this.showAlert("Account erstellt! Willkommen.");
                         }
                     } catch (e) { this.showAlert(e.message); }
                     finally { this.loading = false; }
@@ -426,14 +461,20 @@
                         await _sb.from('follows').insert({ follower_id: this.user.id, following_id: targetId });
                         this.followingIds.push(targetId);
                     }
-                    // Refresh posts to update feed if in "following" mode
                     await this.fetchPosts();
                 },
 
                 async createPost() {
                     if (!this.newPostContent.trim()) return;
-                    await _sb.from('posts').insert({ user_id: this.user.id, content: this.newPostContent });
-                    this.newPostContent = ''; this.view = 'feed'; await this.fetchPosts();
+                    await _sb.from('posts').insert({ 
+                        user_id: this.user.id, 
+                        content: this.newPostContent,
+                        topic: this.newPostTopic 
+                    });
+                    this.newPostContent = ''; 
+                    this.newPostTopic = 'Allgemein';
+                    this.view = 'feed'; 
+                    await this.fetchPosts();
                 },
 
                 async deletePost(id) {
@@ -443,21 +484,10 @@
                 async updateProfile() {
                     const newUsername = this.profile.username.trim();
                     if (!newUsername) return;
-
-                    // Check for uniqueness
                     const { data: existing } = await _sb.from('profiles').select('id').eq('username', newUsername).neq('id', this.user.id).maybeSingle();
-                    if (existing) {
-                        this.showAlert("Dieser Nutzername ist bereits vergeben.");
-                        return;
-                    }
-
+                    if (existing) { this.showAlert("Nutzername vergeben."); return; }
                     const { error } = await _sb.from('profiles').upsert({ id: this.user.id, username: newUsername });
-                    if (!error) {
-                        this.showAlert("Profil aktualisiert!");
-                        await this.fetchPosts();
-                    } else {
-                        this.showAlert("Fehler beim Speichern.");
-                    }
+                    if (!error) { this.showAlert("Profil aktualisiert!"); await this.fetchPosts(); }
                 },
 
                 async searchUsers() {
@@ -465,12 +495,6 @@
                     const { data } = await _sb.from('profiles').select('id, username').ilike('username', `%${this.searchQuery}%`).limit(10);
                     if (data) this.searchResults = data;
                     this.refreshIcons();
-                },
-
-                async deleteAccount() {
-                    await _sb.from('profiles').delete().eq('id', this.user.id);
-                    await _sb.auth.signOut();
-                    window.location.reload();
                 },
 
                 logout() { _sb.auth.signOut().then(() => window.location.reload()); },
